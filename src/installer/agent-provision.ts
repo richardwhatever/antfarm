@@ -76,7 +76,7 @@ export async function provisionAgents(params: {
     }
 
     if (agent.workspace.skills?.length) {
-      const skillsDir = path.join(workspaceDir, "skills");
+      const skillsDir = path.join(workspaceDir, ".agents", "skills");
       await ensureDir(skillsDir);
     }
 
@@ -136,7 +136,7 @@ async function installExternalSkills(workflow: WorkflowSpec): Promise<void> {
     if (externalSkills.length === 0) continue;
 
     const workspaceDir = resolveWorkspaceDir({ workflowId: workflow.id, agent });
-    const skillsDir = path.join(workspaceDir, "skills");
+    const skillsDir = path.join(workspaceDir, ".agents", "skills");
     await ensureDir(skillsDir);
 
     for (const skillName of externalSkills) {
@@ -165,7 +165,7 @@ async function installWorkflowSkill(workflow: WorkflowSpec, workflowDir: string)
       continue;
     }
     const workspaceDir = resolveWorkspaceDir({ workflowId: workflow.id, agent });
-    const targetDir = path.join(workspaceDir, "skills");
+    const targetDir = path.join(workspaceDir, ".agents", "skills");
     await ensureDir(targetDir);
     const destination = path.join(targetDir, "antfarm-workflows");
     await fs.rm(destination, { recursive: true, force: true });
