@@ -303,16 +303,11 @@ function renderBoard(wf, runs) {
           const cls = isDone ? 'done' : isFailed ? 'failed' : '';
           const badge = `badge-${run.status}`;
           const activeStep = run.steps?.find(s => s.step_id === getActiveStepId(run));
-          const startedAt = activeStep?.updated_at || run.updated_at;
-          const lastActive = run.steps?.reduce((latest, s) => {
-            const t = s.updated_at ? new Date(s.updated_at).getTime() : 0;
-            return t > latest ? t : latest;
-          }, 0);
-          const startedStr = startedAt ? smartTime(new Date(startedAt)) : '';
-          const lastActiveStr = lastActive ? smartTime(new Date(lastActive)) : '';
-          const timeHTML = startedStr === lastActiveStr
-            ? `<span>${startedStr}</span>`
-            : `<span title="Started step / Last active">⏱ ${startedStr} · ${lastActiveStr}</span>`;
+          const stepTime = activeStep?.updated_at ? smartTime(new Date(activeStep.updated_at)) : '';
+          const runTime = run.updated_at ? smartTime(new Date(run.updated_at)) : '';
+          const timeHTML = stepTime === runTime
+            ? `<span>Started: ${stepTime}</span>`
+            : `<span>Started: ${stepTime} · Active: ${runTime}</span>`;
           const title = run.task.length > 60 ? run.task.slice(0, 57) + '…' : run.task;
           return `<div class="card ${cls}" onclick="openRun('${run.id}')">
             <div class="card-title" title="${run.task.replace(/"/g, '&quot;')}">${title}</div>
