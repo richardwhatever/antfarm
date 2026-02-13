@@ -318,30 +318,26 @@ async function renderBoard(wf, runs) {
           const cls = isDone ? 'done' : isFailed ? 'failed' : '';
           const badge = `badge-${run.status}`;
           const events = eventsCache[run.id] || [];
-          // Last "pipeline.advanced" = when current stage started
-          const lastAdvanced = [...events].reverse().find(e => e.event === 'pipeline.advanced');
-          // Last event of any kind = latest activity
-          const lastEvent = events.length ? events[events.length - 1] : null;
-          // Format last event like the activity list: "agent Desc" or just "Desc"
-          const lastDesc = lastEvent ? ((lastEvent.agentId ? lastEvent.agentId.replace(/.*-/,'') + ' ' : '') + formatEventDesc(lastEvent)) : '';
-          const lastTimeStr = lastEvent ? smartTime(new Date(lastEvent.ts)) : '';
-          // Fallback for completed/cancelled runs
+          // Find last "pipeline.advanced" index
+          const advIdx = events.map((e,i) => e.event === 'pipeline.advanced' ? i : -1).filter(i => i >= 0);
+          const lastAdvIdx = advIdx.length ? advIdx[advIdx.length - 1] : -1;
+          const lastAdvanced = lastAdvIdx >= 0 ? events[lastAdvIdx] : null;
           const stageStr = lastAdvanced ? smartTime(new Date(lastAdvanced.ts)) : (parseUTC(run.updated_at) ? smartTime(parseUTC(run.updated_at)) : '');
-          let timeHTML;
-          if (lastDesc && stageStr && stageStr !== lastTimeStr) {
-            timeHTML = `<span style="display:block;font-size:11px;line-height:1.4">Stage: ${stageStr} · ${lastDesc} ${lastTimeStr}</span>`;
-          } else if (lastDesc) {
-            timeHTML = `<span style="font-size:11px">${lastDesc} ${lastTimeStr}</span>`;
-          } else {
-            timeHTML = `<span style="font-size:11px">${stageStr || '—'}</span>`;
-          }
+          // Events after the last pipeline.advanced
+          const recentEvents = lastAdvIdx >= 0 ? events.slice(lastAdvIdx + 1) : [];
+          const recentHTML = recentEvents.map(evt => {
+            const t = smartTime(new Date(evt.ts));
+            const agent = evt.agentId ? `<span style="color:var(--accent)">${evt.agentId.replace(/^[^-]+-[^-]+-/,'')}</span> ` : '';
+            return `<div style="font-size:11px;color:var(--text-secondary);padding:1px 0">${t} ${agent}${formatEventDesc(evt)}</div>`;
+          }).join('');
           const title = run.task.length > 60 ? run.task.slice(0, 57) + '…' : run.task;
           return `<div class="card ${cls}" onclick="openRun('${run.id}')">
             <div class="card-title" title="${run.task.replace(/"/g, '&quot;')}">${title}</div>
             <div class="card-meta">
               <span class="badge ${badge}">${run.status}</span>
-              ${timeHTML}
+              <span>Started: ${stageStr || '—'}</span>
             </div>
+            ${recentHTML ? `<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:4px">${recentHTML}</div>` : ''}
           </div>`;
         }).join('');
     return `<div class="column">
