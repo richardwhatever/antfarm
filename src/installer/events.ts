@@ -39,6 +39,11 @@ export function emitEvent(evt: AntfarmEvent): void {
       }
     } catch {}
     fs.appendFileSync(EVENTS_FILE, JSON.stringify(evt) + "\n");
+    // Keep run.updated_at in sync with latest event
+    try {
+      const db = getDb();
+      db.prepare("UPDATE runs SET updated_at = datetime('now') WHERE id = ?").run(evt.runId);
+    } catch {}
   } catch {
     // best-effort, never throw
   }
