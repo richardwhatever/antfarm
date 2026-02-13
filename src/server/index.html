@@ -289,10 +289,18 @@ function getActiveStepId(run) {
   return active ? active.step_id : run.steps[run.steps.length - 1].step_id;
 }
 
-function renderBoard(wf, runs) {
+async function renderBoard(wf, runs) {
   const board = document.getElementById('board');
   const columns = {};
   wf.steps.forEach(s => { columns[s.id] = []; });
+
+  // Pre-fetch events for active runs to get accurate times
+  const eventsCache = {};
+  for (const run of runs) {
+    if (run.status === 'running' || run.status === 'pending') {
+      try { eventsCache[run.id] = await fetchJSON(`/api/runs/${run.id}/events`); } catch { eventsCache[run.id] = []; }
+    }
+  }
 
   runs.forEach(run => {
     const stepId = getActiveStepId(run);
@@ -309,13 +317,17 @@ function renderBoard(wf, runs) {
           const isFailed = run.status === 'failed' || run.status === 'error';
           const cls = isDone ? 'done' : isFailed ? 'failed' : '';
           const badge = `badge-${run.status}`;
-          const activeStep = run.steps?.find(s => s.step_id === getActiveStepId(run));
-          const stepDate = parseUTC(activeStep?.updated_at);
-          const allTimes = (run.steps || []).map(s => parseUTC(s.updated_at)?.getTime() || 0).concat([parseUTC(run.updated_at)?.getTime() || 0]);
-          const latestMs = Math.max(...allTimes);
-          const stepTime = stepDate ? smartTime(stepDate) : '';
-          const lastTime = latestMs ? smartTime(new Date(latestMs)) : '';
-          const timeHTML = `<span>Started: ${stepTime || '—'} · Active: ${lastTime || '—'}</span>`;
+          const events = eventsCache[run.id] || [];
+          // Last "pipeline.advanced" = when current step started
+          const lastAdvanced = [...events].reverse().find(e => e.event === 'pipeline.advanced');
+          // Last event of any kind = active time
+          const lastEvent = events.length ? events[events.length - 1] : null;
+          // Fallback to DB timestamps for completed/cancelled runs
+          const startedStr = lastAdvanced ? smartTime(new Date(lastAdvanced.ts)) : (parseUTC(run.updated_at) ? smartTime(parseUTC(run.updated_at)) : '');
+          const activeStr = lastEvent ? smartTime(new Date(lastEvent.ts)) : startedStr;
+          const timeHTML = startedStr === activeStr
+            ? `<span>Active: ${activeStr || '—'}</span>`
+            : `<span>Step: ${startedStr || '—'} · Active: ${activeStr || '—'}</span>`;
           const title = run.task.length > 60 ? run.task.slice(0, 57) + '…' : run.task;
           return `<div class="card ${cls}" onclick="openRun('${run.id}')">
             <div class="card-title" title="${run.task.replace(/"/g, '&quot;')}">${title}</div>
