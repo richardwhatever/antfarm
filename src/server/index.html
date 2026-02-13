@@ -318,16 +318,23 @@ async function renderBoard(wf, runs) {
           const cls = isDone ? 'done' : isFailed ? 'failed' : '';
           const badge = `badge-${run.status}`;
           const events = eventsCache[run.id] || [];
-          // Last "pipeline.advanced" = when current step started
+          // Last "pipeline.advanced" = when current stage started
           const lastAdvanced = [...events].reverse().find(e => e.event === 'pipeline.advanced');
-          // Last event of any kind = active time
+          // Last event of any kind = latest activity
           const lastEvent = events.length ? events[events.length - 1] : null;
-          // Fallback to DB timestamps for completed/cancelled runs
-          const startedStr = lastAdvanced ? smartTime(new Date(lastAdvanced.ts)) : (parseUTC(run.updated_at) ? smartTime(parseUTC(run.updated_at)) : '');
-          const activeStr = lastEvent ? smartTime(new Date(lastEvent.ts)) : startedStr;
-          const timeHTML = startedStr === activeStr
-            ? `<span>Active: ${activeStr || '—'}</span>`
-            : `<span>Step: ${startedStr || '—'} · Active: ${activeStr || '—'}</span>`;
+          // Format last event like the activity list: "agent Desc" or just "Desc"
+          const lastDesc = lastEvent ? ((lastEvent.agentId ? lastEvent.agentId.replace(/.*-/,'') + ' ' : '') + formatEventDesc(lastEvent)) : '';
+          const lastTimeStr = lastEvent ? smartTime(new Date(lastEvent.ts)) : '';
+          // Fallback for completed/cancelled runs
+          const stageStr = lastAdvanced ? smartTime(new Date(lastAdvanced.ts)) : (parseUTC(run.updated_at) ? smartTime(parseUTC(run.updated_at)) : '');
+          let timeHTML;
+          if (lastDesc && stageStr && stageStr !== lastTimeStr) {
+            timeHTML = `<span style="display:block;font-size:11px;line-height:1.4">Stage: ${stageStr} · ${lastDesc} ${lastTimeStr}</span>`;
+          } else if (lastDesc) {
+            timeHTML = `<span style="font-size:11px">${lastDesc} ${lastTimeStr}</span>`;
+          } else {
+            timeHTML = `<span style="font-size:11px">${stageStr || '—'}</span>`;
+          }
           const title = run.task.length > 60 ? run.task.slice(0, 57) + '…' : run.task;
           return `<div class="card ${cls}" onclick="openRun('${run.id}')">
             <div class="card-title" title="${run.task.replace(/"/g, '&quot;')}">${title}</div>
