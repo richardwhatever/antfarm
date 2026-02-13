@@ -311,9 +311,10 @@ function renderBoard(wf, runs) {
           const badge = `badge-${run.status}`;
           const activeStep = run.steps?.find(s => s.step_id === getActiveStepId(run));
           const stepDate = parseUTC(activeStep?.updated_at);
-          const lastDate = parseUTC(run.updated_at);
+          const allTimes = (run.steps || []).map(s => parseUTC(s.updated_at)?.getTime() || 0).concat([parseUTC(run.updated_at)?.getTime() || 0]);
+          const latestMs = Math.max(...allTimes);
           const stepTime = stepDate ? smartTime(stepDate) : '';
-          const lastTime = lastDate ? smartTime(lastDate) : '';
+          const lastTime = latestMs ? smartTime(new Date(latestMs)) : '';
           const timeHTML = `<span>Started: ${stepTime || '—'} · Active: ${lastTime || '—'}</span>`;
           const title = run.task.length > 60 ? run.task.slice(0, 57) + '…' : run.task;
           return `<div class="card ${cls}" onclick="openRun('${run.id}')">
