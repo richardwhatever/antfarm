@@ -268,6 +268,13 @@ async function loadRuns() {
   renderBoard(currentWf, runs);
 }
 
+function parseUTC(s) {
+  if (!s) return null;
+  // DB timestamps lack 'Z' — treat as UTC
+  if (typeof s === 'string' && !s.endsWith('Z') && !s.includes('+')) s += 'Z';
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
 function smartTime(d) {
   if (!d || isNaN(d)) return '';
   const now = new Date();
@@ -303,11 +310,11 @@ function renderBoard(wf, runs) {
           const cls = isDone ? 'done' : isFailed ? 'failed' : '';
           const badge = `badge-${run.status}`;
           const activeStep = run.steps?.find(s => s.step_id === getActiveStepId(run));
-          const stepTime = activeStep?.updated_at ? smartTime(new Date(activeStep.updated_at)) : '';
-          const runTime = run.updated_at ? smartTime(new Date(run.updated_at)) : '';
-          const timeHTML = stepTime === runTime
-            ? `<span>Started: ${stepTime}</span>`
-            : `<span>Started: ${stepTime} · Active: ${runTime}</span>`;
+          const stepDate = parseUTC(activeStep?.updated_at);
+          const lastDate = parseUTC(run.updated_at);
+          const stepTime = stepDate ? smartTime(stepDate) : '';
+          const lastTime = lastDate ? smartTime(lastDate) : '';
+          const timeHTML = `<span>Started: ${stepTime || '—'} · Active: ${lastTime || '—'}</span>`;
           const title = run.task.length > 60 ? run.task.slice(0, 57) + '…' : run.task;
           return `<div class="card ${cls}" onclick="openRun('${run.id}')">
             <div class="card-title" title="${run.task.replace(/"/g, '&quot;')}">${title}</div>
@@ -330,8 +337,8 @@ function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g
 async function openRun(id) {
   const run = await fetchJSON(`/api/runs/${id}`);
   const panel = document.getElementById('panel');
-  const created = run.created_at ? new Date(run.created_at).toLocaleString() : '';
-  const updated = run.updated_at ? new Date(run.updated_at).toLocaleString() : '';
+  const created = run.created_at ? (parseUTC(run.created_at) || new Date(run.created_at)).toLocaleString() : '';
+  const updated = run.updated_at ? (parseUTC(run.updated_at) || new Date(run.updated_at)).toLocaleString() : '';
   const stepsHTML = (run.steps || []).map(s => {
     const st = s.status || 'waiting';
     const icon = stepIcons[st] || '○';
